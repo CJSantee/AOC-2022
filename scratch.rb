@@ -1,7 +1,4 @@
-if (0)
-	puts "zero"
-end
-
-if (1)
-	puts "one"
+null = ""
+if null
+	puts "NULL"
 end
