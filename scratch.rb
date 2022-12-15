@@ -1,7 +1,5 @@
-arr = [1, 2, 3]
-print "#{arr}\n"
-arr.unshift(0)
-print "#{arr}\n"
-a = arr.pop
-print "#{arr}\n"
-puts a
+arr = [1,2,3,4,5]
+n = arr.length
+for i in 0..n-1 do 
+	puts arr[i]
+end
