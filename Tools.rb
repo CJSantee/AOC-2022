@@ -3,11 +3,23 @@ module Input
     ##
     # Returns integers from string definded in positions where '%i' is in the fstring
     def parse_string(string, fstring)
-      regex = fstring.gsub('%i', '([\d-]*)')
-      fstring.split('%i').map{ |section| {replace: section, with: "(?:#{section})"} }.each do |rw|
+      # Generate regex from fstring
+      regex = fstring.gsub('%i', '([\d-]*)').gsub('%s', '(.*)')
+      fstring.split(/%i|%s/).map do |section| 
+        {
+          replace: section, 
+          with: "(?:#{section =~ /(\(.+?\))/ ? section.gsub(/(\(.+?\))/) { |s| "(?:#{s.gsub!(/\(|\)/, '')}|)"} : section})"
+        } 
+      end.each do |rw|
         regex.gsub!(rw[:replace], rw[:with])
       end
-    /#{regex}/.match(string)&.captures&.map(&:to_i)
+      # Get values from string using regex
+      values = /#{regex}/.match(string)&.captures
+      # Scans operators for %i to map to integer
+      fstring.scan(/%[a-z]/).each.with_index do |operator, idx|        
+        values[idx] = values[idx].to_i if (operator == '%i')
+      end
+      return values
     end
   end
 end
