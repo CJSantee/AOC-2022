@@ -14,3 +14,5 @@ Doing this for every row would take 456days to complete calcuation. I had to res
 ```
 Walk along the edge of the diamonds created by the sensors and for every of these positions, check if it is within range of any of the sensors. If not, we have found the result.
 ```
+
+# Day 16
