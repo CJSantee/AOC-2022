@@ -1,8 +1,9 @@
+require 'set'
 require_relative "../Tools"
 include Input
 
 class Valve 
-  attr_accessor :name, :flow_rate, :connected_valves, :open
+  attr_accessor :name, :flow_rate, :connected_valves
   
   @@fstring = "Valve %s has flow rate=%i; tunnel(s) lead(s) to valve(s) %s"
 
@@ -11,7 +12,6 @@ class Valve
     @name = name
     @flow_rate = flow_rate
     @connected_valves = connected_valves.split(', ')
-    @open = false
   end
 
   def to_s
@@ -30,167 +30,91 @@ def get_valves
   return valves
 end
 
-def recursive(current_valve, all_valves, opened_valves, time_left, pressure_released)
-  if (time_left == 0)
-    return pressure_released
+$bfs_memo = Hash.new()
+def bfs_shortest_path(valves, start, finish)
+  if ($bfs_memo[{start: start, finish: finish}])
+    return $bfs_memo[{start: start, finish: finish}]
   end
 
-  # TODO: Track opened valves instead of unopened valves and add the sum of their flow rate to pressure_released every minute
-  total_flow_rate = opened_valves.reduce(0) { |sum, valve| sum + valve.flow_rate }
-
-  open_current_valve = 0
-  if (!opened_valves.include?(current_valve))
-    open_current_valve = recursive(current_valve, all_valves, [*opened_valves, current_valve], time_left-1, pressure_released+total_flow_rate)
-  end
-
-  visit_adjacent_valves = all_valves.filter { |v| current_valve.connected_valves.include?(v.name) }.map { |valve| recursive(valve, all_valves, opened_valves, time_left-1, pressure_released+total_flow_rate)}
-
-  [open_current_valve, *visit_adjacent_valves].max
-end
-
-def print_grid(grid, valves)
-  print "    "
-  for col in 0..grid.first.length-1 do 
-    print " #{valves[col].name[0]}  "
-  end
-  print "\n    "
-  for col in 0..grid.first.length-1 do 
-    print " #{valves[col].name[1]}  "
-  end
-  print "\n"
-  for row in 0..grid.length-1 do 
-    print " #{row + 1}: " if row+1 < 10
-    print "#{row + 1}: " if row+1 >= 10
-    for col in 0..grid.first.length-1 do 
-      print "  #{grid[row][col]} " if grid[row][col] < 10
-      print " #{grid[row][col]} " if grid[row][col] >= 10 && grid[row][col] < 100
-      print "#{grid[row][col]} " if grid[row][col] >= 100
-    end
-    print "\n"
-  end
-end
-
-def print_meta(meta, valves)
-  print "    "
-  for col in 0..meta.first.length-1 do 
-    print "#{valves[col].name[0]} "
-  end
-  print "\n    "
-  for col in 0..meta.first.length-1 do 
-    print "#{valves[col].name[1]} "
-  end
-  print "\n"
-  for row in 0..meta.length-1 do 
-    print " #{row + 1}: " if row+1 < 10
-    print "#{row + 1}: " if row+1 >= 10
-    for col in 0..meta.first.length-1 do 
-      if (meta[row][col][:open] && meta[row][col][:releasing])
-        print "1 "
-      else
-        print "0 "
-      end
-    end
-    print "\n"
-  end
-end
-
-def dynamic_programming(valves, time)
-  # Row = Time
-  # Col = Valve
-  grid = Array.new(time) { Array.new(valves.length, 0) }
-  meta = Array.new(time) { Array.new(valves.length) { Hash.new } }
-
-  # Find "shortest path" to each valve and add time it would take to open
   queue = []
   visited = Hash.new()
-  time_to_open = Hash.new()
+  dist = Hash.new()
 
-  start = valves.find { |valve| valve.name == "AA" }
-  visited[start.name] = true
-  time_to_open[start.name] = 1
+  valves.each do |valve|
+    visited[valve.name] = false
+    dist[valve.name] = Float::INFINITY
+  end
+
+  visited[start] = true
+  dist[start] = 0
   queue.unshift(start)
 
   while (queue.length != 0) do 
     u = queue.pop
-    u.connected_valves.each do |valve_name|
-      if (!visited[valve_name])
-        visited[valve_name] = true
-        time_to_open[valve_name] = time_to_open[u.name] + 1
-        queue.unshift(valves.find { |valve| valve.name == valve_name })
+    if (u == finish)
+      $bfs_memo[{start: start, finish: finish}] = dist[u]
+      return dist[u]
+    end
+    valves.find { |valve| valve.name == u }.connected_valves.each do |cv|
+      if (!visited[cv]) 
+        visited[cv] = true
+        dist[cv] = dist[u] + 1
+        queue.unshift(cv)
       end
     end
-  end 
-
-  puts time_to_open
-
-  for row in 0..29 do 
-    for col in 0..valves.length-1 do 
-      meta[row][col] = {
-        open: [],
-        releasing: 0
-      }
-    end
   end
-
-  # Populate grid with initial opening of each valve
-  valves.each.with_index do |valve, idx|
-    row = time_to_open[valve.name]
-    col = idx
-    grid[row][col] = valve.flow_rate
-    meta[row][col] = {
-      open: [valve.name],
-      releasing: valve.flow_rate 
-    }
-  end
-
-  print_grid(grid, valves)
-  print "=========\n"
-  print_meta(meta, valves)
-  
-  # DP Algorithm for finding max pressure_released
-  for time in 2..30 do 
-    for v in 0..valves.length-1 do 
-      max = grid[time-1][v]
-      # Handle valve is already open but you want to stay
-      if ((time > time_to_open[valves[v].name]+1 ? grid[time-2][v]+meta[time-2][v][:releasing]+valves[v].flow_rate : 0) > max)
-        if (meta[time-2][v][:open].include?(valves[v].name))
-          meta[time-1][v] = {
-            open: meta[time-2][v][:open],
-            releasing: meta[time-2][v][:releasing]
-          }
-          max = grid[time-2][v]+meta[time-2][v][:releasing]
-        else
-          meta[time-1][v] = {
-            open: [*meta[time-2][v][:open], valves[v].name],
-            releasing: meta[time-2][v][:releasing]+valves[v].flow_rate
-          }
-          max = grid[time-2][v]+meta[time-2][v][:releasing]+valves[v].flow_rate
-        end
-      end
-      valves[v].connected_valves.each do |valve_name|
-        cv = valves.find_index { |v| v.name == valve_name }
-        if (grid[time-2][cv]+meta[time-2][cv][:releasing] > max)
-          meta[time-1][v] = {
-            open: meta[time-2][cv][:open],
-            releasing: meta[time-2][cv][:releasing]
-          }
-          max = grid[time-2][cv]+meta[time-2][cv][:releasing]
-        end
-      end
-      grid[time-1][v] = max
-    end
-  end
-  
-  print_grid(grid, valves)
-
-  puts meta[29][9]
-
-  return 0
 end
 
 def part_one(valves)
+  useful_valves = valves.filter { |v| v.flow_rate != 0 }
+
   start = valves.find { |valve| valve.name == "AA" }  
-  dynamic_programming(valves, 30)
+  time_limit = 30
+  max_pressure_released = 0
+
+  # a stack of our current branches - [path], minutes_elapsed, { valve: <minute opened> }
+  stack = [[[start], 0, Hash.new]]
+
+  while (stack.size > 0) do 
+    path, time, opened_valves = stack.pop
+    current_valve = path.last
+    
+    # Time has reached 30 minutes or path includes all useful_valves and AA
+    if (time > time_limit || path.length == useful_valves.length + 1)
+      pressure_released = 0
+
+      opened_valves.each do |valve_name, minute_opened|
+        minutes_opened = [time_limit - minute_opened, 0].max
+        pressure_released += valves.find { |v| v.name == valve_name}.flow_rate * minutes_opened
+      end
+
+      max_pressure_released = [max_pressure_released, pressure_released].max
+    else
+      useful_valves.each do |next_valve|
+        if (!opened_valves[next_valve.name])
+          travel_time = bfs_shortest_path(valves, current_valve.name, next_valve.name)
+
+          time_to_open = 1
+
+          new_time = time + travel_time + time_to_open
+
+          new_opened_valves = opened_valves.clone
+          new_opened_valves[next_valve.name] = new_time
+
+          new_path = path.clone
+          new_path.append(next_valve)
+
+          stack.append([new_path, new_time, new_opened_valves])
+        end
+      end
+    end
+  end
+
+  return max_pressure_released
+end
+
+def part_two
+
 end
 
 # Part One

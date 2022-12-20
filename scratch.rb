@@ -1,2 +1,4 @@
-valves = ["AA", "BB", "CC"]
-puts valves.index("BB")
+hash = {
+  key: "value"
+}
+puts !hash[:dat]
