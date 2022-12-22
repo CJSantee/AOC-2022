@@ -71,6 +71,7 @@ def part_one(valves)
   start = valves.find { |valve| valve.name == "AA" }  
   time_limit = 30
   max_pressure_released = 0
+  max_path = []
 
   # a stack of our current branches - [path], minutes_elapsed, { valve: <minute opened> }
   stack = [[[start], 0, Hash.new]]
@@ -81,14 +82,17 @@ def part_one(valves)
     
     # Time has reached 30 minutes or path includes all useful_valves and AA
     if (time > time_limit || path.length == useful_valves.length + 1)
-      pressure_released = 0
+    pressure_released = 0
 
-      opened_valves.each do |valve_name, minute_opened|
-        minutes_opened = [time_limit - minute_opened, 0].max
-        pressure_released += valves.find { |v| v.name == valve_name}.flow_rate * minutes_opened
-      end
+    opened_valves.each do |valve_name, minute_opened|
+      minutes_opened = [time_limit - minute_opened, 0].max
+      pressure_released += valves.find { |v| v.name == valve_name}.flow_rate * minutes_opened
+    end
 
-      max_pressure_released = [max_pressure_released, pressure_released].max
+    if (pressure_released > max_pressure_released)
+      max_pressure_released = pressure_released
+      max_path = path.map { |v| v.name }
+    end
     else
       useful_valves.each do |next_valve|
         if (!opened_valves[next_valve.name])
@@ -110,6 +114,7 @@ def part_one(valves)
     end
   end
 
+  puts max_path
   return max_pressure_released
 end
 
