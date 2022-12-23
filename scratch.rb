@@ -1,5 +1,5 @@
-arr_one = ['A', 'B', 'C']
+arr  = ['a', 'b', 'c', 'd']
 
-arr_two = ['A', 'C', 'B']
-
-puts arr_one == arr_two
+for idx in 0..10 do 
+  print "#{arr[idx % arr.length]}"
+end
